@@ -1,0 +1,98 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String         @id @default(cuid())
+  email            String         @unique
+  fname            String
+  lname            String
+  phone            String /// @encrypted
+  phoneHash        String? /// @encryption:hash(phone)
+  subscriptions    Subscription[]
+  billingAddress   Address        @relation(fields: [billingAddressId], references: [id])
+  billingAddressId String
+}
+
+model Address {
+  id           String         @id @default(cuid())
+  addr1        String /// @encrypted
+  addr2        String? /// @encrypted
+  addr3        String? /// @encrypted
+  state        String
+  city         String
+  country      String
+  postalCode   String
+  users        User[]
+  subscription Subscription[]
+}
+
+model Product {
+  slug           String         @id
+  sku           String         @unique
+  description   String
+  state ProductState @default(GA)
+  // pricing // beyond the scope of this effort
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id              String            @id @default(cuid())
+  user            User              @relation(fields: [userId], references: [id])
+  userId          String
+  product         Product           @relation(fields: [productId], references: [slug])
+  productId       String
+  createdAt       DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  expiresAt       DateTime
+  shipToAddress   Address?          @relation(fields: [shipToAddressId], references: [id])
+  shipToAddressId String?
+  terms SubscriptionTerms
+  state           SubscriptionState
+  transactions    Transaction[]
+  @@unique([userId, productId])
+  @@index([expiresAt, state])
+}
+
+model Transaction {
+  id              BigInt          @id @default(autoincrement())
+  subscription    Subscription    @relation(fields: [subscriptionId], references: [id])
+  subscriptionId  String
+  transactionType TransactionType
+  note  String
+  createdAt       DateTime        @default(now())
+  @@index([subscriptionId])
+}
+
+enum SubscriptionState {
+  ACTIVE
+  CANCELED
+  EXPIRED
+}
+
+enum TransactionType {
+  CREATE
+  CANCEL
+  EXPIRE
+  UPDATE
+  RENEW
+}
+
+enum SubscriptionTerms {
+  MONTHLY
+  YEARLY
+}
+
+enum ProductState {
+  GA
+  BETA
+  ALPHA
+}
